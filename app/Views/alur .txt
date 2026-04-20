@@ -1,0 +1,910 @@
+
+========================================================
+🥉 Step 3 — Perbaiki URL fetch supaya aman CI4
+
+Ganti semua fetch hardcode:
+
+❌ Jangan pakai:
+
+fetch('http://localhost:8080/titik_koordinat/xxx.json')
+
+
+✅ Pakai PHP helper:
+
+<script>
+const baseUrl = "<?= base_url() ?>";
+
+fetch(`${baseUrl}/titik_koordinat/provinsi_new_kecil.json`)
+
+================================================================
+🚀 1. UPDATE provinsi_id DI sppg
+UPDATE sppg s
+JOIN master_provinsi mp
+ON s.provinsi = mp.nama_provinsi
+SET s.provinsi_id = mp.id;
+
+🚀 2. UPDATE kabupaten_id DI sppg
+UPDATE sppg s
+JOIN master_kabupaten mk
+ON s.kab_kota = mk.nama_kabupaten
+SET s.kabupaten_id = mk.id;
+
+ini juga sidebar_master✅ 1. Isi master_kabupaten.provinsi_id
+
+Kalau format kode kamu:
+
+provinsi = 11
+kabupaten = 1101
+UPDATE master_kabupaten k
+JOIN master_provinsi p
+ON LEFT(k.kode_bps, 2) = p.kode_bps
+SET k.provinsi_id = p.id;
+
+✅ 2. Isi master_kecamatan.kabupaten_id
+UPDATE master_kecamatan kc
+JOIN master_kabupaten k
+ON LEFT(kc.kode_bps, 4) = k.kode_bps
+SET kc.kabupaten_id = k.id;
+==================================
+alur management userMaka user juga harus sama:
+Level	Scope
+provinsi	lihat semua kab + kec
+kabupaten	lihat kec di kab itu
+kecamatan	hanya data sendiri
+
+buat user semua AUTO
+kecamaten
+INSERT INTO users (
+    nama,
+    username,
+    password,
+    role,
+    provinsi_id,
+    kabupaten_id,
+    kecamatan_id,
+    level_user,
+    is_active,
+    created_at
+)
+SELECT 
+    CONCAT('User ', nama_kecamatan),
+    LOWER(REPLACE(nama_kecamatan, ' ', '_')),
+    '$2y$10$wH5gK6l9H9lG5yZz9sQx9e9GQy9xF7zYyqF5sVZqWz0yQJYv0Yz6K', -- password 1234 (hash)
+    'user',
+    k.provinsi_id,
+    kc.kabupaten_id,
+    kc.id,
+    'kecamatan',
+    1,
+    NOW()
+FROM master_kecamatan kc
+JOIN master_kabupaten k ON kc.kabupaten_id = k.id;
+
+kabupaten
+INSERT INTO users (
+    nama,
+    username,
+    password,
+    role,
+    provinsi_id,
+    kabupaten_id,
+    kecamatan_id,
+    level_user,
+    is_active,
+    created_at
+)
+SELECT 
+    CONCAT('User ', nama_kabupaten),
+    LOWER(REPLACE(nama_kabupaten, ' ', '_')),
+    '$2y$10$wH5gK6l9H9lG5yZz9sQx9e9GQy9xF7zYyqF5sVZqWz0yQJYv0Yz6K',
+    'user',
+    provinsi_id,
+    id,
+    NULL,
+    'kabupaten',
+    1,
+    NOW()
+FROM master_kabupaten;
+=====================================
+Dan:
+
+const kabKotaUrl = `${baseUrl}/titik_koordinat/kabupaten_coba_master.json`;
+=============================================
+app/Controllers
+├── ├── Admin/
+    │     ├── DashboardController.php
+    │     ├── DataApprovedController.php
+    │     ├── DataPokokController.php
+    │     ├── InfrastrukturController.php
+    │     ├── ProfilingController.php
+    │     ├── StagingController.php
+    │     ├── UploadController.php
+    │
+    ├── Master/
+    │     ├── DashboardController.php
+    │
+    ├── Penyuluh/
+    │     ├── InputPemotongan.php
+    │
+    ├── User/
+    │     ├── DashboardController.php
+    │     ├── DataPokokController.php
+    │     ├── UploadController.php
+    │     ├── UploadInfrastrukturController.php
+    |
+├── AiController.php
+├── ApiController.php
+├── ApiData.php
+├── Auth.php
+├── BaseController.php
+├── CaraPenggunaanController.php
+├── DowenloadController.php
+├── ProfilingController.php
+├── UploadController.php
+
+app/Models/
+│   └── DataPokok/
+│       ├── JenisTernakModel.php
+│       ├── MasterJenisTernakModel.php
+│       ├── MasterKabupatenModel.php // belom ada isi
+│       ├── MasterProvinsiModel.php
+│       ├── PokokDataTernakModel.php
+│       ├── PokokParameterTernakModel.php
+│       ├── StagingDataPokokModel.php
+│       ├── ParameterTernakModel.php // yg mau dibuat
+|
+
+app/Views/
+│
+├── layout/
+│     └── master/
+│        │   ├── header.php
+│        │   ├── navbar.php
+│        │   ├── footer.php
+│        │
+│     └── admin/
+│        │   ├── header.php
+│        │   ├── navbar.php
+│        │   ├── footer.php
+│        │
+│     └── user/
+│        |   ├── header.php
+│        |   ├── navbar.php
+│        |   ├── footer.php
+│
+│     └── sidebar/
+│        |    ├── sidebar_master.php
+│        |    ├── sidebar_admin.php
+│        |    └── sidebar_user.php
+|====================================
+├── master/
+│     ├──── dashboard.php
+│     ├──── users.php
+│     ├──── roles.php
+│     ├──── scurity.php
+│     ├──── layout.php
+│     ├──── theme.php
+│     ├──── backupdanrestore.php
+│
+├── Admin/
+│     ├── dashboard.php
+│     ├── Upload.php
+│     ├── staging.php /approval data
+│     ├── infrastruktur.php
+│     ├── profiling.php
+│     ├── carapenggunaan.php
+│
+├── User/
+│     ├── dashboard.php
+│     ├── Upload.php
+│     ├── Riwayat Upload
+│     ├── infrastruktur.php
+│     ├── profiling.php
+│     ├── carapenggunaan.php
+│     ├── profil.php
+│     ├── lockout.php
+|====================================
+
+===============================
+id (identitas wajib)
+user_id (siapa yg upload)
+
+==============================
+data base "data pokok"
+CREATE TABLE pokok_master_provinsi (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nama_provinsi VARCHAR(100) NOT NULL,
+    created_at DATETIME,
+    updated_at DATETIME
+);
+
+pokok_master_kabupaten
+CREATE TABLE pokok_master_kabupaten (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    provinsi_id INT NOT NULL,
+    nama_kabupaten VARCHAR(100) NOT NULL,
+    created_at DATETIME,
+    updated_at DATETIME,
+    FOREIGN KEY (provinsi_id) REFERENCES pokok_master_provinsi(id)
+);
+
+pokok_master_jenis_ternak
+CREATE TABLE pokok_master_jenis_ternak (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nama_jenis VARCHAR(100) NOT NULL,
+    kelompok ENUM('besar_potong','perah','unggas_petelor','unggas_pedaging') NOT NULL,
+    created_at DATETIME,
+    updated_at DATETIME,
+    is_susu,
+    is_telur,
+);
+
+pokok_parameter_ternak
+CREATE TABLE pokok_parameter_ternak (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+
+    kabupaten_id INT NOT NULL,
+    jenis_ternak_id INT NOT NULL,
+    tahun YEAR NOT NULL,
+
+    -- Parameter ternak potong
+    berat_hidup DECIMAL(10,2) DEFAULT 0,
+    berat_karkas DECIMAL(10,2) DEFAULT 0,
+    berat_daging_murni DECIMAL(10,2) DEFAULT 0,
+    berat_jeroan DECIMAL(10,2) DEFAULT 0,
+
+    -- Parameter ternak perah
+    betina_laktasi_terhadap_populasi DECIMAL(5,2) DEFAULT 0,
+    produktivitas_susu DECIMAL(10,2) DEFAULT 0,
+
+    -- Parameter petelur
+    produktivitas_telur DECIMAL(10,2) DEFAULT 0,
+
+    -- Parameter pedaging
+    konversi_livebird_ke_karkas DECIMAL(5,2) DEFAULT 0,
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    UNIQUE KEY uniq_parameter (
+        kabupaten_id,
+        jenis_ternak_id,
+        tahun
+    ),
+
+    INDEX idx_kabupaten (kabupaten_id),
+    INDEX idx_jenis (jenis_ternak_id),
+    INDEX idx_tahun (tahun),
+
+    CONSTRAINT fk_parameter_kabupaten
+        FOREIGN KEY (kabupaten_id)
+        REFERENCES pokok_master_kabupaten(id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE,
+
+    CONSTRAINT fk_parameter_jenis
+        FOREIGN KEY (jenis_ternak_id)
+        REFERENCES pokok_master_jenis_ternak(id)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE
+);
+
+
+pokok_data_ternak
+CREATE TABLE pokok_data_ternak (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    provinsi_id INT NOT NULL,
+    kabupaten_id INT NOT NULL,
+    jenis_ternak_id INT NOT NULL,
+    tahun YEAR NOT NULL,
+
+    pemotongan_rph INT DEFAULT 0,
+    pemotongan_luar_rph INT DEFAULT 0,
+    pemotongan_tidak_tercatat INT DEFAULT 0,
+    populasi INT DEFAULT 0,
+
+    produksi_susu DECIMAL(15,2),
+    produksi_telur DECIMAL(15,2),
+
+    created_at DATETIME,
+    updated_at DATETIME,
+
+    FOREIGN KEY (provinsi_id) REFERENCES pokok_master_provinsi(id),
+    FOREIGN KEY (kabupaten_id) REFERENCES pokok_master_kabupaten(id),
+    FOREIGN KEY (jenis_ternak_id) REFERENCES pokok_master_jenis_ternak(id),
+
+    UNIQUE (kabupaten_id, jenis_ternak_id, tahun)
+);
+
+staging_data_pokok_ternak
+CREATE TABLE staging_data_pokok_ternak (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+
+    user_id INT,
+
+    provinsi_id INT,
+    kabupaten_id INT,
+    jenis_ternak_id INT,
+
+    tahun INT,
+
+    populasi BIGINT NULL,
+
+    pemotongan_rph BIGINT NULL,
+    pemotongan_luar_rph BIGINT NULL,
+    pemotongan_tidak_tercatat BIGINT NULL,
+
+    produksi_susu BIGINT NULL,
+    produksi_telur BIGINT NULL,
+
+    status ENUM('pending','approved','rejected') DEFAULT 'pending',
+    catatan_admin TEXT NULL,
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+======================================================
+penyuluh pertanian
+CREATE TABLE penyuluh_pemotongan_harian (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+
+    nama_tempat VARCHAR(150) NOT NULL,
+    alamat TEXT,
+    desa VARCHAR(100),
+    kecamatan VARCHAR(100),
+    kabupaten VARCHAR(100),
+
+    bulan VARCHAR(7), -- format: 2026-02
+    tanggal DATE NOT NULL,
+    nama_petugas VARCHAR(150),
+
+    sapi_potong INT DEFAULT 0,
+    sapi_perah INT DEFAULT 0,
+    kerbau INT DEFAULT 0,
+
+    status ENUM('draft','dikirim','disetujui','ditolak') DEFAULT 'draft',
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+
+    ALTER TABLE penyuluh_pemotongan_harian 
+ADD UNIQUE (nama_tempat, tanggal);
+);
+
+bulanan hitung otomatis jadi gak dipake
+CREATE TABLE penyuluh_pemotongan_bulanan (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+
+    provinsi VARCHAR(100),
+    kabupaten VARCHAR(100),
+    bulan VARCHAR(7),
+
+    nama_pelapor VARCHAR(150),
+
+    nama_tempat VARCHAR(150),
+    alamat TEXT,
+    desa VARCHAR(100),
+    kecamatan VARCHAR(100),
+
+    total_sapi_potong INT DEFAULT 0,
+    total_sapi_perah INT DEFAULT 0,
+    total_kerbau INT DEFAULT 0,
+
+    status ENUM('draft','dikirim','disetujui','ditolak') DEFAULT 'draft',
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+================================================================
+pokok_data_ternak
+id	int
+provinsi_id	int
+kabupaten_id	int
+jenis_ternak_id	int
+tahun	year
+pemotongan_rph	int
+pemotongan_diluar_rph	int
+pemotongan_tidak_tercatat	int
+populasi	int
+produksi_susu	decimal
+produksi_telur	decimal
+created_at	datetime
+update_at	datetime
+
+pokok_master_jenis_ternak
+id	int
+nama_jenis	varchar
+kategori_input	enum
+created_at	datetime
+update_at	datetime
+is_susu	tinyint
+is_telur	tinyint
+
+pokok_master_kabupaten
+id	int
+provinsi_id	int
+nama_kabupaten	varchar
+created_at	datetime
+update_at	datetime
+
+pokok_master_provinsi
+id	int
+nama_provinsi	varchar
+jenis_ternak	varchar
+created_at	datetime
+update_at	datetime
+
+pokok_parameter_ternak
+id	int
+provinsi_id	int
+kabupaten_id	int
+jenis_ternak_id	int
+tahun	year
+berat_hidup	decimal
+berat_karkas	decimal
+berat_daging_murni	decimal
+berat_jeroan	decimal
+produktivitas_susu	decimal
+produktivitas_telur	decimal
+konversi_livebird_ke_karkas	decimal
+created_at	datetime
+update_at	datetime
+tipe_rumus	enum
+
+pokok_staging_data_ternak
+id	int
+user_id	int
+provinsi_id	int
+kabupaten_id	int
+jenis_ternak_id	int
+tahun	int
+populasi	bigint
+pemotongan_rph	bigint
+pemotongan_luar_rph	bigint
+pemotongan_tidak_tercatat	bigint
+produksi_daging	decimal
+produksi_susu	decimal
+produksi_telur	decimal
+mode_inputan	enum
+status	enum
+catatan_admin	text
+created_at	datetime
+
+pengajuan_infrastruktur
+id	user_id		jenis_infrastruktur	nama_tempat	alamat	latitude	longitude	keterangan	status	created_at	verified_at	verified_by
+1	3	klinikhewan	coba	d	-6.283238119686864	106.80710565437433		pending			
+
+
+urutannya app/
+ ├── Controllers/
+ │     └── Penyuluh/
+ │            └── Pemotongan.php
+ │
+ ├── Models/
+ │     └── PenyuluhPemotonganHarianModel.php
+ │
+ └── Views/
+       └── penyuluh/
+              └── pemotongan/
+                     ├── index.php
+                     ├── create.php
+                     └── edit.php
+
+=============================
+rumus excell untuk hitung unggas
+= (AE/100) × Z × (AA + (AB/100 × AA))
+
+Artinya 
+AE	pemotongan_terhadap_populasi (%)
+Z	Populasi
+AA	Berat_karkas(kg/ekor)
+AB	jerohan_terhadap_karkase (%)
+
+= AH × (100 - AI)/100 × AJ × AK/100
+
+Kolom	Makna
+AH	populasi_ternak
+AI	Deplesi (%)
+AJ	Bobot_panen_livebird (kg)
+AK	Konversi_livebird_ke_karkas (%)
+================================
+🐄 Sapi → bisa susu
+
+🐓 Ayam petelur → bisa telur
+
+🐐 Kambing → kadang susu
+
+🐂 Sapi potong → TIDAK susu
+
+🐑 Domba → TIDAK telur
+
+🐖 Babi → TIDAK susu/telur
+=================================
+untuk data pokok difilter aku juga gak tau harus seperti apa, karena di google sheet sii semua orang bisa akses
+semua data tiap kabupaten sepertinya tdk difilter klo utk datapokok
+di datapokok ada
+
+"Sapi potong Lokal, Sapi potong Eks Impor (BX), Domba, Babi, Kuda"
+    inputannya user yg diisikan 
+        pemotongan_di_RPH_TPH	
+        pemootongan_diluar_RPH_TPH	
+        pemotongan_tidak_tercatat
+    memiliki parameter ini 
+        berat_hidup(kg/ekor)
+        berat_karkas(kg/ekor)
+        berat_daging_murni(kg/ekor)
+        berat_jeroan(kg/ekor)
+        berat_daging_variasi(kg/ekor)
+        persentase_berat_daging_variasi(%)
+        pemotongan_tidak_tercatat(%)
+    yg dicari dan rumus
+        pemotongan_total (ekor) (input user ditambahkan semua)
+        karkas(Kg) (pemotongan_total*berat_karkas)
+        daging_murni(Kg) (pemotongan_total*berat_daging_murni)
+        jeroan(Kg) (pemotongan_total*berat_jeroan)
+        daging_variasi (Kg) (pemotongan_total*berat_daging_variasi)
+        karkas_jeroan_daging_variasi (Kg) (karkas+jeroan+daging_variasi)
+        dagingmurni_jeroan_daging_variasi (Kg) (daging_murni+daging_variasi+karkas_jeroan_daging_variasi)
+
+
+
+"Sapi Perah, Kerbau, Kambing"
+    memiliki parameter ini 
+        berat_hidup(kg/ekor)
+        berat_karkas(kg/ekor)
+        berat_daging_murni(kg/ekor)
+        berat_jeroan(kg/ekor)
+        berat_daging_variasi(kg/ekor)
+        berat_daging_variasi(%)
+        pemotongan_tidak_tercatat(%)
+        betina_laktasi_terhap_populasi(%)
+        produktivitas_susu(kg/ekor/thn)
+    Dan inputannya user yg diisikan 
+        pemotongan_di_RPH_TPH
+        pemootongan_diluar_RPH_TPH
+        pemotongan_tidak_tercatat
+
+"Ayam Buras, Ayam Ras Petelur, Itik, Puyuh, Itik Manila" 
+    memiliki parameter
+        berat_karkas(kg/ekor) 
+        jeroan_terhadap_Karkas(%) 
+        betina_produktif_terhadap_populasi(%)
+        produktivitas_telur(kg/ekor/thn) 
+        pemotongan_terhadap_populasi(%)
+    yg diinputkan user untuk sekarang hnaya populasi_ternak saja
+
+"Ayam ras Pedaging, Kelinci" 
+    memiliki parameter
+        deplesi(%)	 
+        bobot_panen_livebird(kg) 
+        konversi_livebird_ke_karkas(%)
+    yg diinputkan user untuk sekarang hnaya populasi_ternak saja
+======================================================
+ADMIN
+│
+├ Dashboard
+│
+├ DATA MANAGEMENT
+│   ├ Upload Data
+│   ├ Staging List
+│   │     ├ Profiling
+│   │     ├ Infrastruktur
+│   │     └ Data Pokok
+│   │
+│   ├ Data Approved
+│   │     ├ Profiling
+│   │     ├ Infrastruktur
+│   │     └ Data Pokok
+│   │
+│   └ Data Pokok   ⭐ Modul Utama
+│         ├ Input Manual
+│         ├ Parameter
+│         ├ Master
+│         └ Hasil Perhitungan
+│
+├ GIS / PROFILING
+│   ├ Infrastruktur
+│   └ Profiling
+│
+└ SYSTEM
+    └ Cara Penggunaan
+=======================================
+data base Pokok_master_kabupaten tambakan ini 
+id (PK, internal)  
+kode_bps  
+kode_kemendagri  
+nama_kabupaten  
+provinsi_id  
+=============================================
+tabel database pokok_staging_data_ternak
+mode_input ENUM('parameter','manual') DEFAULT 'parameter'
+
+Session Role = pembatas akses
+
+role: user
+level_user: penyuluh
+provinsi: jawa tengah
+kab_kota: jepara
+
+admin/StagingController = untuk approve data yg diinputkan user ini dari profiling maupun infrastruktur
+========================
+Kalau di hosting nanti:
+Folder writable/ harus chmod 775 atau 777
+Owner harus sesuai user web server
+================================
+🥈 Alternatif Kedua: Accordion / Collapse
+
+Misalnya:
+
+▼ Sapi Potong
+▼ Domba
+▼ Ayam Ras Pedaging
+
+Klik → baru kebuka detailnya.
+========================================
+database infrastruktur
+'klinikhewan'
+	field 
+No
+nama_puskeswan
+alamat_puskeswan
+status_kepemilikan
+luas_lahan_m2
+luas_bangunan_m2
+perizinan_nib
+wilayah_kerja
+jumlah_tenaga_dokter_hewan
+jumlah_tenaga_medik_veteriner
+field_72_1
+field_76_1
+peralatan_klinis
+peralatan_mayor
+peralatan_minor
+longitude
+latitude
+kecamatan
+kab_kota
+provinsi
+
+'koperasipkh'
+	field:
+guid_id
+nama_koperasi_UPH
+jenis_lembaga
+alamat
+jumlah_populasi_sapi
+apakah_memproduksi_susu_pasteurisasi?
+apakah_memproduksi_susu_UHT?
+latitude
+longitude
+kecamatan
+kab_kota
+provinsi
+
+
+'labbibit'
+	field:
+id
+lokasi_untuk_data
+jenis_laboratorium_peternakan
+nama_laboratorium
+alamat
+nomor_telepon
+email
+status_akreditasi
+nomor_akreditasi
+status_akreditasi_manajemen_mut
+nomor_akreditasi_manajemen_mutu
+status_akreditasi_iso17025
+nomor_akreditasi_iso17025
+jenis_uji
+jumlah_sdm_laboratorium
+luas_bangunan_laboratorium_mete
+jenis_dan_jumlah_peralatan_labo
+pengertian_76
+longitude
+latitude
+kecamatan
+kab_kota
+provinsi
+ 
+'labkesmavet'
+	field:
+id
+lokasi_untuk_data
+nama_laboratorium
+alamat_laboratorium
+nomor_telepon
+email
+status_akreditasi
+nomor_akreditasi
+jenis_uji
+jumlah_sdm_laboratorium
+luas_bangunan_laboratorium_mete
+jenis_dan_jumlah_peralatan_labo
+pengertian_76
+longitude
+latitude
+kecamatan
+kab_kota
+provinsi
+
+'labkeswan' 
+	field:
+id
+lokasi_untuk_data
+jenis_laboratorium_peternakan
+nama_laboratorium
+alamat_laboratorium
+nomor_telepon
+email
+status_akreditasi
+nomor_akreditasi
+status_akreditasi_manajemen_mutu
+nomor_akreditasi_manajemen_mutu
+status_akreditasi_iso17025
+nomor_akreditasi_iso17025
+jenis_uji
+jumlah_sdm_laboratorium
+luas_bangunan_laboratorium_mutu
+jenis_dan_jumlah_peralatan_laborat
+field_76_1
+longitude
+latitude
+kecamatan
+kab_kota
+provinsi
+
+'labpakan'
+	field:
+id
+lokasi_untuk_data
+jenis_laboratorium_peternakan
+nama_laboratorium
+alamat_laboratorium
+nomor_telepon
+email
+status_akreditasi
+nomor_akreditasi
+status_akreditasi_manajemen_mut
+nomor_akreditasi_manajemen_mutu
+status_akreditasi_iso17025
+nomor_akreditasi_iso17025
+jenis_uji
+jumlah_sdm_laboratorium
+luas_bangunan_laboratorium_mete
+jenis_dan_jumlah_peralatan_labo
+field_76_1
+longitude
+latitude
+kecamatan
+kab_kota
+provinsi
+
+'pasarternak'
+	field
+id
+nama_pasar_ternak
+alamat
+latitude
+longitude
+kecamatan
+kab_kota
+provinsi
+
+'puskeswan'
+	field:
+id
+lokasi_untuk_data
+nama_puskeswan
+alamat_puskeswan
+status_kepemilikan
+wilayah_kerja
+jumlah_tenaga_dokter_hewan
+jumlah_tenaga_medik_veteriner
+jenis_ternak_72
+longitude
+latitude
+kecamatan
+kab_kota
+provinsi
+
+'rph'
+	field:
+id
+lokasi_untuk_data
+nama_rph
+alamat_rph
+pengelola_rph
+pemilik_rph
+status_operasi
+kapasitas_terpasang_ekorhari
+field_70_1
+field_76_1
+sertifikat_nkv
+nomor_kontrol_veteriner
+sertifikat_halal
+nomor_sertifikat_halal
+kapasitas_produksi_ekorhari
+longitude
+latitude
+kecamatan
+kab_kota
+provinsi
+
+'sppg'
+	field:
+no
+Kode_SPPG
+provinsi
+kab_kota
+kecamata
+kelurahan
+alamat
+latitude
+longitude
+Nama_SPPG
+tanggal_operasional
+        
+'uph'
+	field:
+guid_id
+nama_UPH
+jenis_lembaga
+alamat
+latitude
+longitude
+jumlah_produksi_liter
+apakah_memproduksi_susu_pasteurisasi?
+apakah_memproduksi_susu_UHT
+kecamatan
+kab_kota
+provinsi
+
+tabel users
+id
+nama
+username
+password
+role
+provinsi_id
+kabupaten_id
+is_active
+created_at
+provinsi
+kab_kota
+level_user
+
+database 
+harga
+klinikhewan
+koperasipkh
+labbibit
+labkesmavet
+labkeswan
+labpakan
+pasarternak
+pengajuan_infrastruktur
+pengajuan pemotongan
+penyuluh pemotongan_bulanan
+penyuluh pemotongan_harian
+pokok_data_ternak
+pokok_master_jenis_ternak
+pokok_master_kabupaten
+pokok_master_provinsi
+pokok_parameter_ternak
+pokok_staging_data_ternak
+populasi
+produksi
+puskeswan
+rph
+sppg uph
+upload_history
+upload_staging
+upt
+users
+
+===============================
+

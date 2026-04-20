@@ -1,0 +1,4 @@
+upload_history
+id, file_name, uploaded_by, table_name, uploaded_at
+upload_staging
+id, user_id, kategori, data_json, umlah_row, status, catatan_admin, created_at, file_name
