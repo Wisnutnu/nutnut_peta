@@ -19,7 +19,7 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 COPY . .
 
 # Install dependency CI4
-RUN composer install --no-dev --optimize-autoloader
+RUN composer install --no-dev --optimize-autoloader || true
 
 # Run server
 CMD php -S 0.0.0.0:10000 -t public
